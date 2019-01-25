@@ -6,10 +6,12 @@ Created on Mon Jan 15 13:31:59 2018
 """
 
 import urllib
-import cPickle as pickle
+import _pickle as pickle
 import gzip
 import os
 import numpy as np
+import urllib.request
+
 
 
 if __name__ == '__main__':
@@ -34,9 +36,11 @@ if __name__ == '__main__':
         path = 'http://deeplearning.net/data/mnist'
         mnist_filename_all = 'mnist.pkl'
         local_filename = os.path.join(args.savedir, mnist_filename_all)
-        urllib.urlretrieve(
+        urllib.request.urlretrieve(
             "{}/{}.gz".format(path,mnist_filename_all), local_filename+'.gz')
-        tr,va,te = pickle.load(gzip.open(local_filename+'.gz','r'))
-        np.save(open(local_filename+'.npy','w'), (tr,va,te))
-        
+        print('filename:', local_filename)
+        tr,va,te = pickle.load(gzip.open(local_filename+'.gz', 'rb'), encoding='latin1')
+        o = open(local_filename+'.npy','wb')
+        np.save(o, (tr,va,te))
+
         
