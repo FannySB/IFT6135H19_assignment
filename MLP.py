@@ -22,17 +22,17 @@ class NN(object):
             'ERROR! Number of parameter in NN: ' + str(total_param_nn))
 
     # %%
-    def initialize_weights(self, n_hidden, dims):
+    def initialize_weights(self):
         print('initialize_weights')
         weights = {}
         bias = {}
-        for layer in range(len(dims) - 1):
-            weights[layer] = np.random.rand(dims[layer], dims[layer + 1])
-            bias[layer] = np.random.rand(dims[layer + 1])
+        for layer in range(len(self.dims) - 1):
+            weights[layer] = np.random.rand(self.dims[layer], self.dims[layer + 1])
+            bias[layer] = np.random.rand(self.dims[layer + 1])
         return weights, bias
 
     # %%
-    def forward(self, input, labels, weights, bias):
+    def forward(self, input, weights, bias):
         print('forward')
         foward_pass = {}
         for layer in range(len(weights)):
@@ -49,31 +49,37 @@ class NN(object):
 
     # %%
     def activation(self, input):
-        #print('activation')
-        return input
+        return np.maximum(0, input)
 
     # %%
-    def loss(self, prediction):
+    def loss(self, prediction, labels):
         print('loss')
+        pred = np.amax(prediction, axis=1)
+        return -np.sum(labels * np.log(pred))
 
     # %%
     def softmax(self, input):
         print('softmax')
-        return input
+        input_array = np.array(list(input.values()))
+        # input_array  -= np.max(input_array) #To reduce the values of the output. Not let it go to infinity.
+        denominator = np.sum(np.exp(input_array))
+        return input_array / denominator
 
     # %%
     def backward(self, cache, labels):
         print('backward')
-        #SGD
+        # SGD
 
     # %%
     def update(self, grads):
         print('update')
 
     # %%
-    def train(self):
-        #mettre la fct de cout cross_entrpy
-        print('train')
+    def train(self, input, labels):
+        # print('train')
+        # predicted = self.forward()
+        # self.loss(predicted, labels)
+        return input
 
     # %%
     def test(self):
@@ -82,10 +88,10 @@ class NN(object):
 
 mlp = NN()
 mlp.verif_param_nn(mlp.total_param_nn)
-weights, bias = mlp.initialize_weights(mlp.n_hidden, mlp.dims)
+weights, bias = mlp.initialize_weights()
 
 input = np.random.rand(1000, 784)
 labels = np.random.randint(2, size=1000)
-predicted = mlp.forward(input, labels, weights, bias)
-print(predicted)
-
+predicted = mlp.forward(input, weights, bias)
+ce = mlp.loss(predicted, labels)
+print(ce)
