@@ -29,14 +29,13 @@ class NN(object):
         bias = {}
         if method == 'Normal':
             for layer in range(len(self.dims) - 1):
-                # weight_h1 =
-                weights[layer] = np.random.randn(self.dims[layer], self.dims[layer + 1])
-                bias[layer] = np.random.randn(self.dims[layer + 1])
+                weights[layer] = np.random.normal(0, 0.05, size=(self.dims[layer], self.dims[layer + 1]))
+                bias[layer] = np.random.normal(0, 0.05, size=self.dims[layer+1])
         elif method == 'Zero':
             for layer in range(len(self.dims) - 1):
-                line = np.zeros(self.dims[layer], self.dims[layer + 1])
+                line = np.zeros((self.dims[layer], self.dims[layer + 1]), dtype=float)
                 weights[layer] = line
-                bias[layer] = np.zeros(self.dims[layer + 1])
+                bias[layer] = np.zeros((self.dims[layer + 1], ), dtype=float) 
         else:
             for layer in range(len(self.dims) - 1):
                 weights[layer] = np.random.rand(self.dims[layer], self.dims[layer + 1])
@@ -59,7 +58,8 @@ class NN(object):
     # %%
     def loss(self, prediction, labels):
         print('loss')
-        pred = np.amax(prediction, axis=1)
+        print("prediction shape ", prediction.shape)
+        pred = np.max(prediction, axis=0)
         # print('pred.shape',pred.shape)
         # print('labels.shape',labels.shape)
         return -np.sum(labels * np.log(pred))
@@ -98,10 +98,11 @@ def normalize(a, axis=-1, order=2):
 
 mnist = np.load('datasets/mnist.pkl.npy')
 train = mnist[0, 0]
-train_norm = normalize(train, axis=0)
-train_sample = train_norm[:10]
+# train_norm = normalize(train, axis=0)
+train_norm = train
+train_sample = train_norm[:100]
 train_labels = mnist[0, 1]
-train_labels_sample = train_labels[:10]
+train_labels_sample = train_labels[:100]
 validation = mnist[1, 0]
 validation_labels = mnist[1, 1]
 test = mnist[2, 0]
@@ -109,7 +110,20 @@ test_lables = mnist[2, 1]
 
 mlp = NN()
 mlp.verif_param_nn(mlp.total_param_nn)
-weights, bias = mlp.initialize_weights(method='Normal')
-predicted = mlp.forward(train_sample, weights, bias)
-ce = mlp.loss(predicted, train_labels_sample)
+weights, bias = mlp.initialize_weights(method='Zero')
+
+epochs = 1
+learning_rate = 0.01
+
+for epoch in range(epochs):
+    cum_loss = 0
+    for idx in range(len(train_sample)):
+        data = train_sample[idx]
+        labels = train_labels_sample[idx]
+
+        predicted = mlp.forward(data, weights, bias)
+        ce = mlp.loss(predicted, labels)
+
+        # print("predicted = ", predicted)
+        # print("loss ", ce )
 # print(ce)
