@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.preprocessing import OneHotEncoder
 import _pickle as pickle
 import gzip
 
@@ -30,12 +31,12 @@ class NN(object):
         if method == 'Normal':
             for layer in range(len(self.dims) - 1):
                 weights[layer] = np.random.normal(0, 0.05, size=(self.dims[layer], self.dims[layer + 1]))
-                bias[layer] = np.random.normal(0, 0.05, size=self.dims[layer+1])
+                bias[layer] = np.random.normal(0, 0.05, size=self.dims[layer + 1])
         elif method == 'Zero':
             for layer in range(len(self.dims) - 1):
                 line = np.zeros((self.dims[layer], self.dims[layer + 1]), dtype=float)
                 weights[layer] = line
-                bias[layer] = np.zeros((self.dims[layer + 1], ), dtype=float) 
+                bias[layer] = np.zeros((self.dims[layer + 1],), dtype=float)
         else:
             for layer in range(len(self.dims) - 1):
                 weights[layer] = np.random.rand(self.dims[layer], self.dims[layer + 1])
@@ -58,17 +59,14 @@ class NN(object):
     # %%
     def loss(self, prediction, labels):
         print('loss')
-        print("prediction shape ", prediction.shape)
         pred = np.max(prediction, axis=0)
-        # print('pred.shape',pred.shape)
-        # print('labels.shape',labels.shape)
         return -np.sum(labels * np.log(pred))
 
     # %%
     def softmax(self, input):
         print('softmax')
         input -= np.max(input)
-        print('Values softmax:', np.exp(input) / np.sum(np.exp(input)))
+        #print('Values softmax:', np.exp(input) / np.sum(np.exp(input)))
         return np.exp(input) / np.sum(np.exp(input))
 
     # %%
@@ -91,10 +89,17 @@ class NN(object):
     def test(self):
         print('test')
 
+
 def normalize(a, axis=-1, order=2):
     l2 = np.atleast_1d(np.linalg.norm(a, order, axis))
     l2[l2 == 0] = 1
     return a / np.expand_dims(l2, axis)
+
+def encode_labels(labels):
+    labels_reshaped = labels.reshape(len(labels), 1)
+    encoder = OneHotEncoder(sparse=False)
+    return encoder.fit_transform(labels_reshaped)
+
 
 mnist = np.load('datasets/mnist.pkl.npy')
 train = mnist[0, 0]
@@ -102,28 +107,30 @@ train = mnist[0, 0]
 train_norm = train
 train_sample = train_norm[:100]
 train_labels = mnist[0, 1]
-train_labels_sample = train_labels[:100]
+train_labels_sample = encode_labels(train_labels[:100])
 validation = mnist[1, 0]
 validation_labels = mnist[1, 1]
 test = mnist[2, 0]
-test_lables = mnist[2, 1]
+test_labels = mnist[2, 1]
 
 mlp = NN()
 mlp.verif_param_nn(mlp.total_param_nn)
-weights, bias = mlp.initialize_weights(method='Zero')
+weights, bias = mlp.initialize_weights(method='Normal')
+predicted = mlp.forward(train_sample, weights, bias)
+loss = mlp.loss(predicted, train_labels_sample)
 
-epochs = 1
-learning_rate = 0.01
 
-for epoch in range(epochs):
-    cum_loss = 0
-    for idx in range(len(train_sample)):
-        data = train_sample[idx]
-        labels = train_labels_sample[idx]
-
-        predicted = mlp.forward(data, weights, bias)
-        ce = mlp.loss(predicted, labels)
-
-        # print("predicted = ", predicted)
-        # print("loss ", ce )
-# print(ce)
+# epochs = 1
+# learning_rate = 0.01
+# for epoch in range(epochs):
+#     cum_loss = 0
+#     for idx in range(len(train_sample)):
+#         data = train_sample[idx]
+#         labels = train_labels_sample[idx]
+#
+#         predicted = mlp.forward(data, weights, bias)
+#         ce = mlp.loss(predicted, labels)
+#
+#         print("predicted = ", predicted)
+#         print("loss ", ce )
+#         print(ce)
