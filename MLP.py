@@ -29,8 +29,10 @@ class NN(object):
         bias = {}
         if method == 'Normal':
             for layer in range(len(self.dims) - 1):
-                weights[layer] = np.random.normal(0, 0.05, size=(self.dims[layer], self.dims[layer + 1]))
-                bias[layer] = np.random.normal(0, 0.05, size=self.dims[layer+1])
+                # weights[layer] = np.random.normal(0, 0.05, size=(self.dims[layer], self.dims[layer + 1]))
+                weights[layer] = np.random.randn(self.dims[layer], self.dims[layer + 1])*np.sqrt(2/self.dims[layer])
+                # bias[layer] = np.random.normal(0, 0.05, size=self.dims[layer+1])
+                bias[layer] = np.random.randn(self.dims[layer+1])*np.sqrt(2/self.dims[layer])
         elif method == 'Zero':
             for layer in range(len(self.dims) - 1):
                 line = np.zeros((self.dims[layer], self.dims[layer + 1]), dtype=float)
@@ -110,7 +112,7 @@ test_lables = mnist[2, 1]
 
 mlp = NN()
 mlp.verif_param_nn(mlp.total_param_nn)
-weights, bias = mlp.initialize_weights(method='Zero')
+weights, bias = mlp.initialize_weights(method='Normal')
 
 epochs = 1
 learning_rate = 0.01
