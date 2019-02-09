@@ -1,4 +1,7 @@
 import numpy as np
+from sklearn.preprocessing import OneHotEncoder
+import _pickle as pickle
+import gzip
 
 
 class NN(object):
@@ -17,35 +20,37 @@ class NN(object):
 
     def verif_param_nn(self, total_param_nn):
         print('verif_param_nn')
-        assert (
-            not (total_param_nn < 1000000 & total_param_nn > 500000),
-            'ERROR! Number of parameter in NN: ' + str(total_param_nn))
+        assert (not (total_param_nn < 1000000 & total_param_nn > 500000),
+                'ERROR! Number of parameter in NN: ' + str(total_param_nn))
 
     # %%
-    def initialize_weights(self):
+    def initialize_weights(self, method='Normal'):
         print('initialize_weights')
         weights = {}
         bias = {}
-        for layer in range(len(self.dims) - 1):
-            weights[layer] = np.random.rand(self.dims[layer], self.dims[layer + 1])
-            bias[layer] = np.random.rand(self.dims[layer + 1])
+        if method == 'Normal':
+            for layer in range(len(self.dims) - 1):
+                weights[layer] = np.random.normal(0, 0.05, size=(self.dims[layer], self.dims[layer + 1]))
+                bias[layer] = np.random.normal(0, 0.05, size=self.dims[layer + 1])
+        elif method == 'Zero':
+            for layer in range(len(self.dims) - 1):
+                line = np.zeros((self.dims[layer], self.dims[layer + 1]), dtype=float)
+                weights[layer] = line
+                bias[layer] = np.zeros((self.dims[layer + 1],), dtype=float)
+        else:
+            for layer in range(len(self.dims) - 1):
+                weights[layer] = np.random.rand(self.dims[layer], self.dims[layer + 1])
+                bias[layer] = np.random.rand(self.dims[layer + 1])
         return weights, bias
 
     # %%
     def forward(self, input, weights, bias):
         print('forward')
-        foward_pass = {}
-        for layer in range(len(weights)):
-            if layer == 0:
-                for j in range(len(input)):
-                    foward_pass[j] = self.activation(np.dot(weights[layer].transpose(), input[j]) + bias[layer])
-                print(foward_pass[j].shape)
-            else:
-                for j in range(len(input)):
-                    foward_pass[j] = self.activation(np.dot(weights[layer].transpose(), foward_pass[j]) + bias[layer])
-                print(foward_pass[j].shape)
-            print(len(foward_pass.keys()))
-        return self.softmax(foward_pass)
+        h1 = self.activation(np.dot(input, weights[0]) + bias[0])
+        h2 = self.activation(np.dot(h1, weights[1]) + bias[1])
+        out = self.softmax(np.dot(h2, weights[2]) + bias[2])
+        print(h1.shape, h2.shape, out.shape)
+        return out
 
     # %%
     def activation(self, input):
@@ -54,16 +59,15 @@ class NN(object):
     # %%
     def loss(self, prediction, labels):
         print('loss')
-        pred = np.amax(prediction, axis=1)
+        pred = np.max(prediction, axis=0)
         return -np.sum(labels * np.log(pred))
 
     # %%
     def softmax(self, input):
         print('softmax')
-        input_array = np.array(list(input.values()))
-        # input_array  -= np.max(input_array) #To reduce the values of the output. Not let it go to infinity.
-        denominator = np.sum(np.exp(input_array))
-        return input_array / denominator
+        input -= np.max(input)
+        #print('Values softmax:', np.exp(input) / np.sum(np.exp(input)))
+        return np.exp(input) / np.sum(np.exp(input))
 
     # %%
     def backward(self, cache, labels):
@@ -86,12 +90,47 @@ class NN(object):
         print('test')
 
 
+def normalize(a, axis=-1, order=2):
+    l2 = np.atleast_1d(np.linalg.norm(a, order, axis))
+    l2[l2 == 0] = 1
+    return a / np.expand_dims(l2, axis)
+
+def encode_labels(labels):
+    labels_reshaped = labels.reshape(len(labels), 1)
+    encoder = OneHotEncoder(sparse=False)
+    return encoder.fit_transform(labels_reshaped)
+
+
+mnist = np.load('datasets/mnist.pkl.npy')
+train = mnist[0, 0]
+# train_norm = normalize(train, axis=0)
+train_norm = train
+train_sample = train_norm[:100]
+train_labels = mnist[0, 1]
+train_labels_sample = encode_labels(train_labels[:100])
+validation = mnist[1, 0]
+validation_labels = mnist[1, 1]
+test = mnist[2, 0]
+test_labels = mnist[2, 1]
+
 mlp = NN()
 mlp.verif_param_nn(mlp.total_param_nn)
-weights, bias = mlp.initialize_weights()
+weights, bias = mlp.initialize_weights(method='Normal')
+predicted = mlp.forward(train_sample, weights, bias)
+loss = mlp.loss(predicted, train_labels_sample)
 
-input = np.random.rand(1000, 784)
-labels = np.random.randint(2, size=1000)
-predicted = mlp.forward(input, weights, bias)
-ce = mlp.loss(predicted, labels)
-print(ce)
+
+# epochs = 1
+# learning_rate = 0.01
+# for epoch in range(epochs):
+#     cum_loss = 0
+#     for idx in range(len(train_sample)):
+#         data = train_sample[idx]
+#         labels = train_labels_sample[idx]
+#
+#         predicted = mlp.forward(data, weights, bias)
+#         ce = mlp.loss(predicted, labels)
+#
+#         print("predicted = ", predicted)
+#         print("loss ", ce )
+#         print(ce)
