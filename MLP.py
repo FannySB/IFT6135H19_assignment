@@ -83,7 +83,7 @@ class NN(object):
         return -np.sum(labels * np.log(pred))
 
     def backward(self, labels, input, h1, h2, out, weights, bias, learning_rate):
-
+        grads = []
         for sgd_index in range(input.shape[0]):
             # Derivative of loss w.r.t softmax
             dl_dsoftmax = np.dot(labels[sgd_index, :], out[sgd_index, :] - np.identity(self.dim_out))
@@ -107,11 +107,17 @@ class NN(object):
             # Gradient of W^(1) and b^(1)
             grad_w1 = np.outer(input[sgd_index, :], dl_dh1_relu)
             grad_b1 = dl_dh1_relu
+            grads.append(grad_b1)
 
             # Update the parameters
             weights[2], bias[2] = self.update(grad_w3, grad_b3, weights[2], bias[2], learning_rate)
             weights[1], bias[1] = self.update(grad_w2, grad_b2, weights[1], bias[1], learning_rate)
             weights[0], bias[0] = self.update(grad_w1, grad_b1, weights[0], bias[0], learning_rate)
+
+        # print('grads0', grads[0].shape)
+        plt.plot(grads[0])
+        plt.savefig('grads.png')
+        plt.clf()
 
         return weights, bias
 
@@ -123,33 +129,51 @@ class NN(object):
     def train(self, input, labels, weights, bias, epochs, learning_rate):
         print('Training....')
         start = time.time()
-
+        errors = []
         for epoch in range(epochs):
             h1, h2, predicted = mlp.forward(input, weights, bias)
             error = mlp.loss(predicted, labels)
             print(f'Error for epoch {epoch}: {error}')
             weights, bias = mlp.backward(labels, input, h1, h2, predicted, weights, bias, learning_rate)
+            errors.append(error)
 
+        mlp.test(weights[1], predicted[0], labels[0])
+        plt.plot(errors)
+        plt.savefig('errors.png')
         end = time.time()
         print(f'It took : {(end - start)} seconds')
 
     def test(self, weights, prediction, labels):
         print('test')
-        N_vector = [1, 10, 1000, 125000, 6250000]
-        for N in N_vector:
-            epsilon = 1 / N
+        #Const chosen TODO
+        N_vector = [10, 50, 1000, 125000, 6250000]
+        i_vector = [1, 1, 3, 3, 4]
+        grads_all = []
+        for cpt_n in range(len(N_vector)):
+            epsilon =  1 / N_vector[cpt_n]
             grads = []
             p = min(10, len(weights))
             target_weights = weights[:p]
             target_labels = labels[:p]
-            for i in range(p):
-                mask = np.zeros(p)
-                mask[i] = epsilon
-                grads.append(
-                    (self.loss(np.sum(target_weights, mask)) - self.loss(np.diff(weights, mask))) / 2 * epsilon)
 
-            plt.plot(grads)
-            plt.savefig('test_grads' + str(N) + '.png')
+            mask = np.zeros(p)
+            mask[i_vector[cpt_n]] = epsilon
+            print('mask', mask)
+            print('np.transpose(target_weights)', np.transpose(target_weights).shape)
+            eps_added = np.add(np.transpose(target_weights), mask)
+            mask[i_vector[cpt_n]] = - epsilon
+            eps_subs = np.add(np.transpose(target_weights), mask)
+            print('loss+', self.loss(eps_added, labels))
+            print('loss-', self.loss(eps_subs, labels))
+            print('loss-loss', self.loss(eps_added, labels) - self.loss(eps_subs, labels))
+            grad = (self.loss(eps_added, labels) - self.loss(eps_subs, labels)) / 2 * epsilon
+            grads.append(grad)
+            print('grad', grad)
+
+        print(len(grads), grads)
+        plt.plot(grads)
+        plt.savefig('grads_test.png')
+        plt.clf()
 
 
 def normalize(a, axis=-1, order=2):
@@ -160,7 +184,7 @@ def normalize(a, axis=-1, order=2):
 
 def encode_labels(labels):
     labels_reshaped = labels.reshape(len(labels), 1)
-    encoder = OneHotEncoder(sparse=False, categories='auto')
+    encoder = OneHotEncoder(sparse=False)  # , categories='auto')
     return encoder.fit_transform(labels_reshaped)
 
 
