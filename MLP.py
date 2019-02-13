@@ -1,6 +1,8 @@
 import numpy as np
 from math import sqrt
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, LabelBinarizer
+from sklearn.utils import shuffle
+from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import _pickle as pickle
 import gzip
@@ -70,7 +72,9 @@ class NN(object):
         h1 = self.activation(np.dot(input, weights[0]) + bias[0])
         h2 = self.activation(np.dot(h1, weights[1]) + bias[1])
         out = self.softmax(np.dot(h2, weights[2]) + bias[2])
-        return h1, h2, out
+        pred_label_bin = LabelBinarizer()
+        pred_label = pred_label_bin.fit_transform(out)
+        return h1, h2, out, pred_label
 
     def loss(self, prediction, labels):
         """
@@ -82,7 +86,7 @@ class NN(object):
         pred = np.max(prediction, axis=0)
         return -np.sum(labels * np.log(pred))
 
-    def backward(self, labels, input, h1, h2, out, weights, bias, learning_rate):
+    def backward(self, input, labels, h1, h2, out, weights, bias, learning_rate):
 
         for sgd_index in range(input.shape[0]):
             # Derivative of loss w.r.t softmax
@@ -115,23 +119,40 @@ class NN(object):
 
         return weights, bias
 
+    def mini_batch(self, input, labels, h1, h2, out, weights, bias, learning_rate, batch_size):
+        input, labels = shuffle(input, labels)
+
+        for i in range(0, input.shape[0], batch_size):
+            # Get pair of (X, y) of the current minibatch/chunk
+            input_mini = input[i:i + batch_size]
+            labels_mini = labels[i:i + batch_size]
+            weights, bias = self.backward(input_mini, labels_mini, h1, h2, out, weights, bias, learning_rate)
+
+        return weights, bias
+
     def update(self, grads_w, grads_b, weight, bias, learning_rate):
         weight -= np.multiply(learning_rate, grads_w)
         bias -= np.multiply(learning_rate, grads_b)
         return weight, bias
 
-    def train(self, input, labels, weights, bias, epochs, learning_rate):
+    def train(self, input, labels, weights, bias, epochs, learning_rate, batch_size):
         print('Training....')
-        start = time.time()
+        start_nn = time.time()
 
         for epoch in range(epochs):
-            h1, h2, predicted = mlp.forward(input, weights, bias)
+            start_epoch = time.time()
+            h1, h2, predicted, pred_label = mlp.forward(input, weights, bias)
+            acc = self.accuracy(pred_label, labels)
+            print('Model accuracy: ', acc)
             error = mlp.loss(predicted, labels)
-            print(f'Error for epoch {epoch}: {error}')
-            weights, bias = mlp.backward(labels, input, h1, h2, predicted, weights, bias, learning_rate)
+            weights, bias = mlp.mini_batch(input, labels, h1, h2, predicted, weights, bias, learning_rate, batch_size)
+            end_epoch = time.time()
+            print(f'It took : {(end_epoch - start_epoch):.2f} seconds for epoch {epoch}')
+            print(f'Error for epoch {epoch}: {error:.2f}\n')
 
-        end = time.time()
-        print(f'It took : {(end - start)} seconds')
+        end_nn = time.time()
+        print(f'It took : {(end_nn - start_nn):.2f} seconds')
+        return weights, bias
 
     def test(self, weights, prediction, labels):
         print('test')
@@ -151,6 +172,9 @@ class NN(object):
             plt.plot(grads)
             plt.savefig('test_grads' + str(N) + '.png')
 
+    def accuracy(self, pred_label, labels):
+        return accuracy_score(labels, pred_label)
+
 
 def normalize(a, axis=-1, order=2):
     l2 = np.atleast_1d(np.linalg.norm(a, order, axis))
@@ -166,21 +190,28 @@ def encode_labels(labels):
 
 mnist = np.load('datasets/mnist.pkl.npy')
 train = mnist[0, 0]
+train_size = 50
 train_norm = normalize(train, axis=0)
-train_sample = train_norm[:100]
+train_sample = train_norm[:train_size]
 train_labels = mnist[0, 1]
-train_labels_sample = encode_labels(train_labels[:100])
+train_labels_sample = encode_labels(train_labels[:train_size])
 validation = mnist[1, 0]
 validation_labels = mnist[1, 1]
 test = mnist[2, 0]
 test_labels = mnist[2, 1]
 
-mlp = NN()
+batch_size = 5
+epochs = 5
+learning_rate = 0.0001
+mlp = NN(hidden_dims=(450, 900))
 mlp.verif_param_nn(mlp.total_param_nn)
-# weights, bias = mlp.initialize_weights(method='Zero')
+weights, bias = mlp.initialize_weights(method='Zero')
 # weights, bias = mlp.initialize_weights(method='Glorot')
-weights, bias = mlp.initialize_weights(method='Normal')
-mlp.train(train_sample, train_labels_sample, weights, bias, 10, 0.001)
+# weights, bias = mlp.initialize_weights(method='Normal')
+weights, bias = mlp.train(train_sample, train_labels_sample, weights, bias, epochs, learning_rate, batch_size)
+_, _, predicted, chosen_class = mlp.forward(train_sample, weights, bias)
+acc = mlp.accuracy(chosen_class, train_labels_sample)
+print('Model accuracy: ', acc)
 
 # epochs = 10
 # learning_rate = 0.01
