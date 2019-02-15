@@ -12,3 +12,7 @@ def encode_labels(labels):
     labels_reshaped = labels.reshape(len(labels), 1)
     encoder = OneHotEncoder(sparse=False, categories='auto')
     return encoder.fit_transform(labels_reshaped)
+
+def onehot(y, nb_classes=10):
+    targets = np.array(y).reshape(-1)
+    return np.eye(nb_classes)[targets]

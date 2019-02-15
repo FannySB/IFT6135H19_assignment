@@ -1,14 +1,15 @@
 import numpy as np
 from math import sqrt
-from sklearn.utils import shuffle
-from sklearn.metrics import accuracy_score
+from Utils import onehot
+from sklearn.metrics import confusion_matrix
+from sklearn.preprocessing import LabelBinarizer
 import matplotlib.pyplot as plt
 import time
 
 
 class NN(object):
 
-    def __init__(self, hidden_dims=(350, 700), n_hidden=2, method='Glorot'):
+    def __init__(self, hidden_dims=(350, 700), n_hidden=2, method='Glorot', verif_param=True):
         self.weights = {}
         self.bias = {}
         self.n_hidden = n_hidden
@@ -18,7 +19,8 @@ class NN(object):
         features = 784
         self.dims = [features, h1, h2, self.dim_out]
         self.total_param_nn = features * h1 + h2 * h1 + self.dim_out * h1 + h1 + h2 + self.dim_out
-        self.verif_param_nn(self.total_param_nn)
+        if verif_param:
+            self.verif_param_nn(self.total_param_nn)
         self.initialize_weights(method)
 
     def verif_param_nn(self, total_param_nn):
@@ -64,7 +66,8 @@ class NN(object):
         return (labels * (-np.log(prediction))).sum()
 
     def accuracy(self, pred_label, labels):
-        return (pred_label == labels).mean()
+        pred_label_onehot = onehot(pred_label)
+        return np.mean(pred_label_onehot == labels)
 
     def forward(self, input):
         h1_preact = np.dot(input, self.weights[0].T) + self.bias[0]
