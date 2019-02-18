@@ -1,17 +1,21 @@
 import numpy as np
 from math import sqrt
-from Utils import onehot
 from sklearn.metrics import confusion_matrix
-from sklearn.preprocessing import LabelBinarizer
 import matplotlib.pyplot as plt
 import time
+import itertools
 
 
 class NN(object):
 
     def __init__(self, hidden_dims=(350, 700), n_hidden=2, method='Glorot', verif_param=True):
-        self.weights = {}
-        self.bias = {}
+        self.W1 = []
+        self.W2 = []
+        self.W3 = []
+        self.b1 = []
+        self.b2 = []
+        self.b3 = []
+        self.parameters = []
         self.n_hidden = n_hidden
         h1 = hidden_dims[0]
         h2 = hidden_dims[1]
@@ -30,24 +34,32 @@ class NN(object):
 
     def initialize_weights(self, method='Normal'):
         if method == 'Normal':
-            for layer in range(1, len(self.dims)):
-                self.weights[layer - 1] = np.random.randn(self.dims[layer], self.dims[layer - 1]) * np.sqrt(
-                    2 / self.dims[layer - 1])
-                self.bias[layer - 1] = np.zeros((self.dims[layer],), dtype=float)
+            self.W1 = np.random.randn(self.dims[1], self.dims[0]) * 10 ** (-1)  # * np.sqrt(2 / self.dims[1])
+            self.W2 = np.random.randn(self.dims[2], self.dims[1]) * 10 ** (-1)  # * np.sqrt(2 / self.dims[2])
+            self.W3 = np.random.randn(self.dims[3], self.dims[2]) * 10 ** (-1)  # * np.sqrt(2 / self.dims[3])
+            self.b1 = np.zeros((self.dims[1],), dtype=float)
+            self.b2 = np.zeros((self.dims[2],), dtype=float)
+            self.b3 = np.zeros((self.dims[3],), dtype=float)
+            self.parameters = [self.b1, self.W1, self.b2, self.W2, self.b3, self.W3]
         elif method == 'Zero':
-            for layer in range(1, len(self.dims)):
-                line = np.zeros((self.dims[layer], self.dims[layer - 1]), dtype=float)
-                self.weights[layer - 1] = line
-                self.bias[layer - 1] = np.zeros((self.dims[layer],), dtype=float)
+            self.W1 = np.zeros((self.dims[1], self.dims[0]))
+            self.W2 = np.zeros((self.dims[2], self.dims[1]))
+            self.W3 = np.zeros((self.dims[3], self.dims[2]))
+            self.b1 = np.zeros((self.dims[1],), dtype=float)
+            self.b2 = np.zeros((self.dims[2],), dtype=float)
+            self.b3 = np.zeros((self.dims[3],), dtype=float)
+            self.parameters = [self.b1, self.W1, self.b2, self.W2, self.b3, self.W3]
         else:
-            for layer in range(1, len(self.dims)):
-                h_layer = self.dims[layer]
-                h_last_layer = self.dims[layer - 1]
-                d_layer = sqrt(6 / (h_last_layer + h_layer))
-
-                line = np.random.uniform(-d_layer, d_layer, (self.dims[layer], self.dims[layer - 1]))
-                self.weights[layer - 1] = line
-                self.bias[layer - 1] = np.zeros((self.dims[layer],), dtype=float)
+            d_layer1 = sqrt(6 / (self.dims[1] + self.dims[0]))
+            d_layer2 = sqrt(6 / (self.dims[2] + self.dims[1]))
+            d_layer3 = sqrt(6 / (self.dims[3] + self.dims[2]))
+            self.W1 = np.random.uniform(-d_layer1, d_layer1, (self.dims[1], self.dims[0]))
+            self.W2 = np.random.uniform(-d_layer2, d_layer2, (self.dims[2], self.dims[1]))
+            self.W3 = np.random.uniform(-d_layer3, d_layer3, (self.dims[3], self.dims[2]))
+            self.b1 = np.zeros((self.dims[1],), dtype=float)
+            self.b2 = np.zeros((self.dims[2],), dtype=float)
+            self.b3 = np.zeros((self.dims[3],), dtype=float)
+            self.parameters = [self.b1, self.W1, self.b2, self.W2, self.b3, self.W3]
 
     def activation(self, input):
         """
@@ -63,18 +75,19 @@ class NN(object):
         """
         Cross entropy
         """
-        return (labels * (-np.log(prediction))).sum()
+        return (labels * (-np.log(prediction))).sum(axis=1).mean()
 
     def accuracy(self, pred_label, labels):
-        pred_label_onehot = onehot(pred_label)
-        return np.mean(pred_label_onehot == labels)
+        labels_decoded = labels.argmax(axis=1)
+        return (pred_label == labels_decoded).mean()
 
     def forward(self, input):
-        h1_preact = np.dot(input, self.weights[0].T) + self.bias[0]
+        h1_preact = np.dot(input, np.transpose(self.W1)) + self.b1
         h1 = self.activation(h1_preact)
-        h2_preact = np.dot(h1, self.weights[1].T) + self.bias[1]
+        h2_preact = np.dot(h1, np.transpose(self.W2)) + self.b2
         h2 = self.activation(h2_preact)
-        out = self.softmax(np.dot(h2, self.weights[2].T) + self.bias[2])
+        out_preact = np.dot(h2, np.transpose(self.W3)) + self.b3
+        out = self.softmax(out_preact)
         predicted_label = out.argmax(axis=1)
         return h1_preact, h1, h2_preact, h2, out, predicted_label
 
@@ -89,7 +102,7 @@ class NN(object):
         grad_b3 = dl_dsoftmax.mean(axis=0)
 
         # Derivative for hidden 2
-        dl_dh2 = np.dot(dl_dsoftmax, self.weights[2])
+        dl_dh2 = np.dot(dl_dsoftmax, self.W3)
         dl_dh2_relu = (h2_preact > 0) * dl_dh2
 
         # Gradient of W^(2) and b^(2)
@@ -97,7 +110,7 @@ class NN(object):
         grad_b2 = dl_dh2_relu.mean(axis=0)
 
         # Derivative for hidden 1
-        dl_dh1 = np.dot(dl_dh2, self.weights[1])
+        dl_dh1 = np.dot(dl_dh2, self.W2)
         dl_dh1_relu = (h1_preact > 0) * dl_dh1
 
         # Gradient of W^(1) and b^(1)
@@ -105,16 +118,15 @@ class NN(object):
         grad_b1 = dl_dh1_relu.mean(axis=0)
 
         # Update the parameters
-        self.update(grad_w3, grad_b3, learning_rate, 2)
-        self.update(grad_w2, grad_b2, learning_rate, 1)
-        self.update(grad_w1, grad_b1, learning_rate, 0)
+        grads = [grad_b1, grad_w1, grad_b2, grad_w2, grad_b3, grad_w3]
+        self.update(grads, learning_rate)
 
-    def update(self, grads_w, grads_b, learning_rate, parameter_index):
-        self.weights[parameter_index] -= np.multiply(learning_rate, grads_w)
-        self.bias[parameter_index] -= np.multiply(learning_rate, grads_b)
+    def update(self, grads, learning_rate):
+        for parameter, gradient in zip(self.parameters, grads):
+            parameter -= learning_rate * gradient
 
     def train(self, input, labels, epochs, learning_rate, batch_size):
-        print('Training....')
+        # print('Training....')
         start = time.time()
         losses = []
         accuracy = []
@@ -130,33 +142,72 @@ class NN(object):
             loss = self.loss(predicted, labels)
             losses.append(loss)
             end_epoch = time.time()
-            print(f'It took : {(end_epoch - start_epoch):.2f} seconds for epoch {epoch}')
-            print(f'Error for epoch {epoch}: {loss:.2f}')
+            # print(f'It took : {(end_epoch - start_epoch):.2f} seconds for epoch {epoch}')
+            # print(f'Error for epoch {epoch}: {loss:.2f}')
             acc = self.accuracy(pred_label, labels)
             accuracy.append(acc)
-            print(f'Model accuracy: {acc}\n')
+            # print(f'Model accuracy: {acc}\n')
 
-        plt.plot(losses)
-        plt.savefig('losses.png')
-        plt.clf()
-        plt.plot(accuracy)
-        plt.savefig('accuracy.png')
-        plt.clf()
+            # Confusion matrix
+            cnf_matrix = self.confusion_matrix(labels, predicted)
+            # print(cnf_matrix)
+
+        # plt.plot(losses)
+        # plt.savefig('losses.png')
+        # plt.clf()
+        # plt.plot(accuracy)
+        # plt.savefig('accuracy.png')
+        # plt.clf()
         end = time.time()
         print(f'It took : {(end - start)} seconds')
-        return np.mean(losses)
+        return losses, accuracy
 
-    def predict(self, input):
+    def validation(self, input, labels):
         _, _, _, _, _, pred_label = self.forward(input)
-        return pred_label
+        accuracy = self.accuracy(pred_label, labels)
+        return pred_label, accuracy
+
+    def confusion_matrix(self, y_true, y_pred):
+        # Transform into array of classes
+        y_true = y_true.argmax(axis=1)
+        y_pred = y_pred.argmax(axis=1)
+        return confusion_matrix(y_true, y_pred)
+
+    def plot_confusion_matrix(self, cm, classes, normalize=False, title='Confusion matrix', cmap=plt.cm.Blues):
+        """
+        This function prints and plots the confusion matrix.
+        Normalization can be applied by setting `normalize=True`.
+        """
+        if normalize:
+            cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+            print("Normalized confusion matrix")
+        else:
+            print('Confusion matrix, without normalization')
+
+        plt.imshow(cm, interpolation='nearest', cmap=cmap)
+        plt.title(title)
+        plt.colorbar()
+        tick_marks = np.arange(len(classes))
+        plt.xticks(tick_marks, classes)
+        plt.yticks(tick_marks, classes)
+        fmt = '.2f' if normalize else 'd'
+        thresh = cm.max() / 2.
+        for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+            plt.text(j, i, format(cm[i, j], fmt),
+                     horizontalalignment="center",
+                     color="white" if cm[i, j] > thresh else "black")
+        plt.ylabel('True label')
+        plt.xlabel('Predicted label')
+        plt.tight_layout()
+        plt.clf()
 
     def finite_difference(self, labels, grad_test_h2):
         print('test')
         # Const chosen
         N_vector = [10, 500, 1000, 125000, 6250000]
         grads_all = []
-        p = min(10, len(self.weights[1]))
-        target_weights = self.weights[1][:p]
+        p = min(10, len(self.W2))
+        target_weights = self.W2[:p]
         target_weights = self.softmax(target_weights)
         for N in N_vector:
             epsilon = 1 / N
