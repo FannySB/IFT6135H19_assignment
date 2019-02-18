@@ -5,36 +5,37 @@ from random import shuffle
 import matplotlib.pyplot as plt
 import seaborn as sn
 import pandas as pd
+import random
 
 ''' Import data '''
 mnist = np.load('datasets/mnist.pkl.npy')
-train = mnist[0, 0]
-# Shuffle the indices
-indices = list(range(train.shape[0]))
-shuffle(indices)
-shuffle_ind = indices[:50000]  # train.shape[0]
-# Train sample
-train_sample = train[shuffle_ind]
-train_labels = mnist[0, 1]
-train_labels_sample = train_labels[shuffle_ind]
-train_labels_sample_encoded = onehot(train_labels_sample)
-# Plot the distribution
-plt.hist(train_labels_sample)
-plt.savefig('labels_distribution.png')
-plt.clf()
+# train = mnist[0, 0]
+# # Shuffle the indices
+# indices = list(range(train.shape[0]))
+# shuffle(indices)
+# shuffle_ind = indices[:10000]  # train.shape[0]
+# # Train sample
+# train_sample = train[shuffle_ind]
+# train_labels = mnist[0, 1]
+# train_labels_sample = train_labels[shuffle_ind]
+# train_labels_sample_encoded = onehot(train_labels_sample)
+# # Plot the distribution
+# plt.hist(train_labels_sample)
+# plt.savefig('labels_distribution.png')
+# plt.clf()
 
 # Validation set
-validation = mnist[1, 0]
-indices = list(range(validation.shape[0]))
-shuffle(indices)
-shuffle_ind = indices[:validation.shape[0]]  # validation.shape[0]
-validation_shuffled = validation[shuffle_ind]
-validation_labels = mnist[1, 1]
-validation_labels_shuffled = validation_labels[shuffle_ind]
-valid_lab_encoded = onehot(validation_labels_shuffled)
-# Test set
-test = mnist[2, 0]
-test_labels = mnist[2, 1]
+# validation = mnist[1, 0]
+# indices = list(range(validation.shape[0]))
+# shuffle(indices)
+# shuffle_ind = indices[:validation.shape[0]]  # validation.shape[0]
+# validation_shuffled = validation[shuffle_ind]
+# validation_labels = mnist[1, 1]
+# validation_labels_shuffled = validation_labels[shuffle_ind]
+# valid_lab_encoded = onehot(validation_labels_shuffled)
+# # Test set
+# test = mnist[2, 0]
+# test_labels = mnist[2, 1]
 
 ''' Hyper-parameters '''
 # batch_size = 64
@@ -66,7 +67,7 @@ test_labels = mnist[2, 1]
 
 # mlp.test(train_labels_sample[-1], grad_test_h2)
 
-# Question 1
+''' Question 1 '''
 # batch_size = 64
 # epochs = 10
 # learning_rate = 10 ** (-1)
@@ -91,8 +92,7 @@ test_labels = mnist[2, 1]
 # plt.savefig('Average_loss_Glorot_Normal.png')
 # plt.clf()
 
-# Question 2
-
+''' Question 2 '''
 # Hyper-parameters to search on
 # h1 = [415, 500, 585, 675]
 # h2 = [415, 500, 585, 675]
@@ -122,3 +122,15 @@ test_labels = mnist[2, 1]
 #     _, valid_acc = mlp.validation(validation_shuffled, valid_lab_encoded)
 #     print(f'Validation accuracy: {valid_acc}\n')
 #     acc.append(valid_acc)
+
+''' Question 3 '''
+# Train sample
+train = mnist[0, 0]
+train_sample = train[2]
+train_labels = mnist[0, 1]
+train_labels_sample = train_labels[2]
+train_labels_sample_encoded = onehot(train_labels_sample)
+
+np.random.seed(123)
+mlp = NN(hidden_dims=(10, 10), method='Glorot', verif_param=False, axis=0)
+mlp.finite_difference(train_sample, train_labels_sample_encoded)

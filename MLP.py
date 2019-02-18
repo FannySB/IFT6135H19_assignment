@@ -8,7 +8,8 @@ import itertools
 
 class NN(object):
 
-    def __init__(self, hidden_dims=(350, 700), n_hidden=2, method='Glorot', verif_param=True):
+    def __init__(self, hidden_dims=(350, 700), n_hidden=2, method='Glorot', verif_param=True,
+                 axis=1):
         self.W1 = []
         self.W2 = []
         self.W3 = []
@@ -16,6 +17,7 @@ class NN(object):
         self.b2 = []
         self.b3 = []
         self.parameters = []
+        self.axis = axis
         self.n_hidden = n_hidden
         h1 = hidden_dims[0]
         h2 = hidden_dims[1]
@@ -68,17 +70,20 @@ class NN(object):
         return np.maximum(0., input)
 
     def softmax(self, input):
-        e_x = np.exp(input - np.max(input, axis=1, keepdims=True))
-        return e_x / e_x.sum(axis=1, keepdims=True)
+        e_x = np.exp(input - np.max(input, axis=self.axis, keepdims=True))
+        return e_x / e_x.sum(axis=self.axis, keepdims=True)
 
     def loss(self, prediction, labels):
         """
         Cross entropy
         """
-        return (labels * (-np.log(prediction))).sum(axis=1).mean()
+        if self.axis == 1:
+            return (labels * (-np.log(prediction))).sum(axis=self.axis).mean()
+        else:
+            return (labels * (-np.log(prediction))).sum()
 
     def accuracy(self, pred_label, labels):
-        labels_decoded = labels.argmax(axis=1)
+        labels_decoded = labels.argmax(axis=self.axis)
         return (pred_label == labels_decoded).mean()
 
     def forward(self, input):
@@ -88,7 +93,7 @@ class NN(object):
         h2 = self.activation(h2_preact)
         out_preact = np.dot(h2, np.transpose(self.W3)) + self.b3
         out = self.softmax(out_preact)
-        predicted_label = out.argmax(axis=1)
+        predicted_label = out.argmax(axis=self.axis)
         return h1_preact, h1, h2_preact, h2, out, predicted_label
 
     def backward(self, input, labels, h1_preact, h1, h2_preact, h2, out_softmax, learning_rate):
@@ -120,6 +125,20 @@ class NN(object):
         # Update the parameters
         grads = [grad_b1, grad_w1, grad_b2, grad_w2, grad_b3, grad_w3]
         self.update(grads, learning_rate)
+
+    def backward_diff(self, input, labels, h1_preact, h1, h2_preact, h2, out_softmax):
+        dl_dsoftmax = out_softmax - labels
+        grad_w3 = np.outer(dl_dsoftmax, h2)
+        grad_b3 = dl_dsoftmax
+        dl_dh2 = np.dot(dl_dsoftmax, self.W3)
+        dl_dh2_relu = (h2_preact > 0) * dl_dh2
+        grad_w2 = np.outer(dl_dh2_relu, h1)
+        grad_b2 = dl_dh2_relu
+        dl_dh1 = np.dot(dl_dh2, self.W2)
+        dl_dh1_relu = (h1_preact > 0) * dl_dh1
+        grad_w1 = np.outer(dl_dh1_relu, input)
+        grad_b1 = dl_dh1_relu
+        return grad_w2
 
     def update(self, grads, learning_rate):
         for parameter, gradient in zip(self.parameters, grads):
@@ -160,7 +179,7 @@ class NN(object):
         # plt.clf()
         end = time.time()
         print(f'It took : {(end - start)} seconds')
-        return losses, accuracy
+        return accuracy, losses
 
     def validation(self, input, labels):
         _, _, _, _, _, pred_label = self.forward(input)
@@ -169,8 +188,8 @@ class NN(object):
 
     def confusion_matrix(self, y_true, y_pred):
         # Transform into array of classes
-        y_true = y_true.argmax(axis=1)
-        y_pred = y_pred.argmax(axis=1)
+        y_true = y_true.argmax(axis=self.axis)
+        y_pred = y_pred.argmax(axis=self.axis)
         return confusion_matrix(y_true, y_pred)
 
     def plot_confusion_matrix(self, cm, classes, normalize=False, title='Confusion matrix', cmap=plt.cm.Blues):
@@ -179,7 +198,7 @@ class NN(object):
         Normalization can be applied by setting `normalize=True`.
         """
         if normalize:
-            cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+            cm = cm.astype('float') / cm.sum(axis=self.axis)[:, np.newaxis]
             print("Normalized confusion matrix")
         else:
             print('Confusion matrix, without normalization')
@@ -201,29 +220,33 @@ class NN(object):
         plt.tight_layout()
         plt.clf()
 
-    def finite_difference(self, labels, grad_test_h2):
+    def finite_difference(self, input, labels):
         print('test')
         # Const chosen
-        N_vector = [10, 500, 1000, 125000, 6250000]
-        grads_all = []
-        p = min(10, len(self.W2))
-        target_weights = self.W2[:p]
-        target_weights = self.softmax(target_weights)
-        for N in N_vector:
-            epsilon = 1 / N
-            grads = []
-            for i in range(p):
-                mask = np.zeros(p)
-                mask[i] = epsilon
-                eps_added = np.add(np.transpose(target_weights), mask)
-                mask[i] = - epsilon
-                eps_subs = np.add(np.transpose(target_weights), mask)
-                grad = (self.loss(eps_added, labels) - self.loss(eps_subs, labels)) / 2 * epsilon
-                grads.append(grad)
-            grads_all.append(grads)
-        temp = grad_test_h2[1][:p]
-        temp2 = [-x for x in temp]
-        diff_grads = np.add(grads_all, temp2)
-        plt.plot(diff_grads)
-        plt.savefig('grads_test.png')
+        N_vector = [10 ** (1), 5 * 10 ** (1), 10 ** (2), 5 * 10 ** (2), 10 ** (3), 5 * 10 ** (3),
+                    10 ** (4), 5 * 10 ** (4), 10 ** (5), 5 * 10 ** (5)]
+        epsilon = np.ones(len(N_vector)) / N_vector
+        grad_max_diff = []
+        w2_dim_flatten = self.W2.shape[0] * self.W2.shape[1]
+        p = min(10, w2_dim_flatten)
+        h1_preact, h1, h2_preact, h2, out, predicted_label = self.forward(input)
+        grad_w2_bprop = self.backward_diff(input, labels, h1_preact, h1, h2_preact, h2, out)
+        W2_fixed = self.W2
+        for eps in epsilon:
+            grads = np.zeros(shape=self.W2.shape)
+            for index, value in np.ndenumerate(W2_fixed):
+                self.W2[index] += eps
+                _, _, _, _, out_plus, _ = self.forward(input)
+                loss_added = self.loss(out_plus, labels)
+                self.W2[index] -= 2 * eps
+                _, _, _, _, out_minus, _ = self.forward(input)
+                loss_minus = self.loss(out_minus, labels)
+                grads[index] = (loss_added - loss_minus) / 2 * eps
+                self.W2 = W2_fixed
+            grad_max_diff.append(np.max(np.abs(grads - grad_w2_bprop)))
+        plt.semilogx(epsilon, grad_max_diff, '-bo')
+        plt.xlabel('Epsilon')
+        plt.ylabel('Maximum difference')
+        plt.tight_layout()
+        plt.savefig('Maximum_finite_difference.png')
         plt.clf()
